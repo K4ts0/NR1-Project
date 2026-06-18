@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs'; // use bcryptjs
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -27,7 +27,7 @@ export async function initializeDatabase() {
     )
   `);
 
-  // Tabela de respostas (anônimas, mas com setor e data)
+  // Tabela de respostas
   await db.exec(`
     CREATE TABLE IF NOT EXISTS responses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,55 +40,29 @@ export async function initializeDatabase() {
     )
   `);
 
-  // ========== USUÁRIOS PADRÃO (mantidos para compatibilidade) ==========
-  const adminOldCount = await db.get('SELECT COUNT(*) as count FROM users WHERE email = "admin@administracao.com"');
-  if (adminOldCount.count === 0) {
-    const hashed = await bcrypt.hash('admin123', 10);
-    await db.run(
-      'INSERT INTO users (email, password, role, name) VALUES (?, ?, ?, ?)',
-      ['admin@administracao.com', hashed, 'Administração', 'Administrador']
-    );
+  // ========== FUNÇÃO PARA CRIAR OU ATUALIZAR USUÁRIO ==========
+  async function createUserIfNotExists(email, password, role, name) {
+    const existing = await db.get('SELECT id FROM users WHERE email = ?', [email]);
+    if (!existing) {
+      const hashed = await bcrypt.hash(password, 10);
+      await db.run(
+        'INSERT INTO users (email, password, role, name) VALUES (?, ?, ?, ?)',
+        [email, hashed, role, name]
+      );
+      console.log(`✅ Usuário criado: ${email} (${role})`);
+    } else {
+      console.log(`ℹ️ Usuário já existe: ${email}`);
+    }
   }
 
-  const safetyOldCount = await db.get('SELECT COUNT(*) as count FROM users WHERE email = "seguranca@empresa.com"');
-  if (safetyOldCount.count === 0) {
-    const hashed = await bcrypt.hash('senha123', 10);
-    await db.run(
-      'INSERT INTO users (email, password, role, name) VALUES (?, ?, ?, ?)',
-      ['seguranca@empresa.com', hashed, 'Segurança do trabalho', 'Técnico de Segurança']
-    );
-  }
+  // ========== CRIAR USUÁRIOS ==========
+  await createUserIfNotExists('Admin', 'admin@2026', 'Administração', 'Administrador');
+  await createUserIfNotExists('Segtrab', 'SEGtrab@2026', 'Segurança do trabalho', 'Segurança do Trabalho');
+  await createUserIfNotExists('Informatica', 'infor@2026', 'Segurança do trabalho', 'Informática');
 
-  // ========== NOVOS USUÁRIOS SOLICITADOS ==========
-  // Usuário: Admin (Administração)
-  const adminNewCount = await db.get('SELECT COUNT(*) as count FROM users WHERE email = "Admin"');
-  if (adminNewCount.count === 0) {
-    const hashed = await bcrypt.hash('admin@2026', 10);
-    await db.run(
-      'INSERT INTO users (email, password, role, name) VALUES (?, ?, ?, ?)',
-      ['Admin', hashed, 'Administração', 'Administrador']
-    );
-  }
-
-  // Usuário: Segtrab (Segurança do trabalho)
-  const segtrabCount = await db.get('SELECT COUNT(*) as count FROM users WHERE email = "Segtrab"');
-  if (segtrabCount.count === 0) {
-    const hashed = await bcrypt.hash('SEGtrab@2026', 10);
-    await db.run(
-      'INSERT INTO users (email, password, role, name) VALUES (?, ?, ?, ?)',
-      ['Segtrab', hashed, 'Segurança do trabalho', 'Segurança do Trabalho']
-    );
-  }
-
-  // Usuário: Informatica (Segurança do trabalho)
-  const informaticaCount = await db.get('SELECT COUNT(*) as count FROM users WHERE email = "Informatica"');
-  if (informaticaCount.count === 0) {
-    const hashed = await bcrypt.hash('infor@2026', 10);
-    await db.run(
-      'INSERT INTO users (email, password, role, name) VALUES (?, ?, ?, ?)',
-      ['Informatica', hashed, 'Segurança do trabalho', 'Informática']
-    );
-  }
+  // (Opcional) manter usuários antigos se quiser
+  await createUserIfNotExists('admin@administracao.com', 'admin123', 'Administração', 'Administrador (antigo)');
+  await createUserIfNotExists('seguranca@empresa.com', 'senha123', 'Segurança do trabalho', 'Técnico de Segurança (antigo)');
 
   dbInstance = db;
   return db;
