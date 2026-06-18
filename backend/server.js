@@ -2,46 +2,38 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { initializeDatabase, getDb } from './database.js';
 import { authenticateUser, requireAuth, requireAdminOrSafety } from './auth.js';
 import { categories, questions, calculateCategoryScores, calculateIPS } from './questionnaireData.js';
 import { generateFullReport } from './reportGenerator.js';
 
-
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Serve os arquivos estáticos do frontend (build do React)
-const frontendPath = join(__dirname, '..', 'frontend', 'dist');
-app.use(express.static(frontendPath));
-
-// Redireciona qualquer rota não-API para o index.html do frontend
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) {
-    return next();
-  }
-  res.sendFile(join(frontendPath, 'index.html'));
-});
-
 dotenv.config();
+
+// ========== DECLARAÇÃO DO APP ==========
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// ========== MIDDLEWARES ==========
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
 await initializeDatabase();
 
-// Rota pública: estrutura do questionário
+// ========== SERVE O FRONTEND (BUILD DO REACT) ==========
+const frontendPath = join(__dirname, '..', 'frontend', 'dist');
+app.use(express.static(frontendPath));
+
+// ========== ROTAS DA API ==========
 app.get('/api/questionnaire', (req, res) => {
   res.json({ categories, questions });
 });
 
-// Submissão de resposta (anônima, com setor)
 app.post('/api/responses', async (req, res) => {
   const { sector, answers, observations } = req.body;
   if (!sector || !answers || answers.length !== 50) {
@@ -54,12 +46,10 @@ app.post('/api/responses', async (req, res) => {
     'INSERT INTO responses (sector, answers, observations, ips_score, risk_level) VALUES (?, ?, ?, ?, ?)',
     [sector, JSON.stringify(answers), observations || '', ips, level]
   );
-  // Gera mini relatório para o respondente
   const miniReport = { scores, ips, ipsLevel: level, message: 'Avaliação concluída. Relatório gerado conforme NR-01.' };
   res.json({ success: true, miniReport });
 });
 
-// Login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const result = await authenticateUser(email, password);
@@ -67,14 +57,12 @@ app.post('/api/login', async (req, res) => {
   res.json(result);
 });
 
-// Listar respostas (anônimas, para relatórios)
 app.get('/api/responses', requireAuth, requireAdminOrSafety, async (req, res) => {
   const db = getDb();
   const rows = await db.all('SELECT id, sector, created_at, ips_score, risk_level FROM responses ORDER BY created_at DESC');
   res.json({ responses: rows });
 });
 
-// Estatísticas agregadas para dashboard
 app.get('/api/reports/stats', requireAuth, requireAdminOrSafety, async (req, res) => {
   const db = getDb();
   const responses = await db.all('SELECT sector, ips_score, risk_level FROM responses');
@@ -90,7 +78,6 @@ app.get('/api/reports/stats', requireAuth, requireAdminOrSafety, async (req, res
   res.json({ totalResponses: total, sectorStats, riskDistribution: riskDist });
 });
 
-// Gerar PDF do relatório completo para um setor
 app.get('/api/reports/pdf', requireAuth, requireAdminOrSafety, async (req, res) => {
   const { sector } = req.query;
   if (!sector) return res.status(400).json({ error: 'Setor obrigatório' });
@@ -108,7 +95,6 @@ app.get('/api/reports/pdf', requireAuth, requireAdminOrSafety, async (req, res) 
   }
 });
 
-// Deletar todas as respostas de um setor
 app.delete('/api/responses/sector/:sector', requireAuth, requireAdminOrSafety, async (req, res) => {
   const { sector } = req.params;
   if (!sector) return res.status(400).json({ error: 'Setor não informado' });
@@ -120,10 +106,15 @@ app.delete('/api/responses/sector/:sector', requireAuth, requireAdminOrSafety, a
   res.json({ success: true, deletedCount: result.changes });
 });
 
-// Link compartilhável (apenas para gerar URL)
 app.get('/api/share-link', requireAuth, requireAdminOrSafety, (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   res.json({ link: `${frontendUrl}/responder` });
 });
 
+// ========== FALLBACK PARA O FRONTEND (ROTAS DO REACT) ==========
+app.get('*', (req, res) => {
+  res.sendFile(join(frontendPath, 'index.html'));
+});
+
+// ========== INICIA O SERVIDOR ==========
 app.listen(PORT, '0.0.0.0', () => console.log(`Backend rodando na porta ${PORT} - acessível na rede`));
