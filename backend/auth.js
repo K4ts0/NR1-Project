@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { getDb } from './database.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nr01-secret-key-change-in-production';
