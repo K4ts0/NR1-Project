@@ -100,7 +100,7 @@ export async function generateFullReport(responses, sector, companyName = 'UPA B
         </tbody>
       </table>
 
-      <h2>ÍNDICE PSICOSSOCIAL SETORIAL (IPS)</h2>
+      <h2>6. ÍNDICE PSICOSSOCIAL SETORIAL (IPS)</h2>
       <div class="progress-bar"><div class="progress-fill">${ips.toFixed(2)} / 5.0</div></div>
       <div class="ips-number">${ips.toFixed(2)} / 5.0</div>
       <p style="text-align:center; color:#b91c1c"><strong>Nível: ${ipsLevel}</strong></p>
