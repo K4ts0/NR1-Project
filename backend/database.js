@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
-import bcrypt from 'bcryptjs'; // use bcryptjs
+import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -15,7 +15,6 @@ export async function initializeDatabase() {
     driver: sqlite3.Database
   });
 
-  // Tabela de usuários
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +26,6 @@ export async function initializeDatabase() {
     )
   `);
 
-  // Tabela de respostas
   await db.exec(`
     CREATE TABLE IF NOT EXISTS responses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,29 +38,33 @@ export async function initializeDatabase() {
     )
   `);
 
-  // ========== FUNÇÃO PARA CRIAR OU ATUALIZAR USUÁRIO ==========
-  async function createUserIfNotExists(email, password, role, name) {
+  // ========== FUNÇÃO QUE CRIA OU ATUALIZA SENHA ==========
+  async function createOrUpdateUser(email, password, role, name) {
+    const hashed = await bcrypt.hash(password, 10);
     const existing = await db.get('SELECT id FROM users WHERE email = ?', [email]);
     if (!existing) {
-      const hashed = await bcrypt.hash(password, 10);
       await db.run(
         'INSERT INTO users (email, password, role, name) VALUES (?, ?, ?, ?)',
         [email, hashed, role, name]
       );
       console.log(`✅ Usuário criado: ${email} (${role})`);
     } else {
-      console.log(`ℹ️ Usuário já existe: ${email}`);
+      // Atualiza a senha para garantir que está correta
+      await db.run(
+        'UPDATE users SET password = ?, name = ? WHERE email = ?',
+        [hashed, name, email]
+      );
+      console.log(`🔄 Senha atualizada para: ${email}`);
     }
   }
 
-  // ========== CRIAR USUÁRIOS ==========
-  await createUserIfNotExists('Admin', 'admin@2026', 'Administração', 'Administrador');
-  await createUserIfNotExists('Segtrab', 'SEGtrab@2026', 'Segurança do trabalho', 'Segurança do Trabalho');
-  await createUserIfNotExists('Informatica', 'infor@2026', 'Segurança do trabalho', 'Informática');
-
-  // (Opcional) manter usuários antigos se quiser
-  await createUserIfNotExists('admin@administracao.com', 'admin123', 'Administração', 'Administrador (antigo)');
-  await createUserIfNotExists('seguranca@empresa.com', 'senha123', 'Segurança do trabalho', 'Técnico de Segurança (antigo)');
+  // ========== CRIA/ATUALIZA OS USUÁRIOS ==========
+  await createOrUpdateUser('Admin', 'admin@2026', 'Administração', 'Administrador');
+  await createOrUpdateUser('Segtrab', 'SEGtrab@2026', 'Segurança do trabalho', 'Segurança do Trabalho');
+  await createOrUpdateUser('Informatica', 'infor@2026', 'Segurança do trabalho', 'Informática');
+  // Opcional: manter os antigos
+  await createOrUpdateUser('admin@administracao.com', 'admin123', 'Administração', 'Administrador (antigo)');
+  await createOrUpdateUser('seguranca@empresa.com', 'senha123', 'Segurança do trabalho', 'Técnico de Segurança (antigo)');
 
   dbInstance = db;
   return db;
