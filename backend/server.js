@@ -107,7 +107,7 @@ app.delete('/api/responses/sector/:sector', requireAuth, requireAdminOrSafety, a
 });
 
 app.get('/api/share-link', requireAuth, requireAdminOrSafety, (req, res) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrl = req.headers.origin || `${req.protocol}://${req.get('host')}`;
   res.json({ link: `${frontendUrl}/responder` });
 });
 
@@ -118,3 +118,12 @@ app.get('*', (req, res) => {
 
 // ========== INICIA O SERVIDOR ==========
 app.listen(PORT, '0.0.0.0', () => console.log(`Backend rodando na porta ${PORT} - acessível na rede`));
+
+app.post('/api/debug/check-password', async (req, res) => {
+  const { email, password } = req.body;
+  const db = getDb();
+  const user = await db.get('SELECT password FROM users WHERE email = ?', [email]);
+  if (!user) return res.json({ exists: false });
+  const valid = await bcrypt.compare(password, user.password);
+  res.json({ email, valid });
+});

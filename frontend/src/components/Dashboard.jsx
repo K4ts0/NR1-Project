@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getStats, getResponses, downloadPdf, deleteSector } from '../api';
+import { getStats, getResponses, downloadPdf, deleteSector, getCurrentUser } from '../api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [responses, setResponses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const currentUser = getCurrentUser();
+  const isInformatica = currentUser?.email === 'Informatica';
 
   useEffect(() => {
     Promise.all([getStats(), getResponses()])
@@ -32,13 +34,11 @@ export default function Dashboard() {
   const sectorsCount = stats?.sectorStats?.length || 0;
   const criticalCount = stats?.riskDistribution?.Crítico || 0;
 
-  // Dados para o gráfico de barras
   const sectorChartData = stats?.sectorStats?.map(s => ({
     name: s.sector,
     ips: parseFloat(s.avgIps),
   })) || [];
 
-  // Dados para o gráfico de pizza - distribuição de risco
   const riskData = stats?.riskDistribution ? [
     { name: 'Baixo', value: stats.riskDistribution.Baixo || 0, color: '#059669' },
     { name: 'Moderado', value: stats.riskDistribution.Moderado || 0, color: '#d97706' },
@@ -48,13 +48,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Título da página */}
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Dashboard de Riscos Psicossociais</h1>
         <p className="text-gray-500">Visão geral das avaliações por setor – conforme NR-01</p>
       </div>
 
-      {/* Cards superiores */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 shadow-sm border border-blue-200">
           <div className="flex justify-between items-start">
@@ -97,9 +95,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Gráficos em duas colunas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de barras: IPS por setor */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h2 className="text-lg font-semibold text-gray-700 mb-3">IPS por Setor</h2>
           <div className="h-64">
@@ -114,7 +110,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Gráfico de pizza: distribuição de risco - CORRIGIDO */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h2 className="text-lg font-semibold text-gray-700 mb-3">Distribuição de Risco</h2>
           <div className="h-64">
@@ -142,7 +137,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Tabela de setores com IPS e barra de progresso */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-700">Resumo por Setor</h2>
@@ -200,27 +194,29 @@ export default function Dashboard() {
                         </svg>
                         Baixar PDF
                       </button>
-                      <button
-                        onClick={async () => {
-                          if (window.confirm(`Tem certeza que deseja excluir TODAS as respostas do setor "${sector.sector}"? Essa ação é irreversível.`)) {
-                            try {
-                              await deleteSector(sector.sector);
-                              const [statsData, responsesData] = await Promise.all([getStats(), getResponses()]);
-                              setStats(statsData);
-                              setResponses(responsesData.responses || []);
-                              alert(`Setor "${sector.sector}" excluído com sucesso.`);
-                            } catch (err) {
-                              alert('Erro ao excluir setor: ' + (err.response?.data?.error || err.message));
+                      {isInformatica && (
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Tem certeza que deseja excluir TODAS as respostas do setor "${sector.sector}"? Essa ação é irreversível.`)) {
+                              try {
+                                await deleteSector(sector.sector);
+                                const [statsData, responsesData] = await Promise.all([getStats(), getResponses()]);
+                                setStats(statsData);
+                                setResponses(responsesData.responses || []);
+                                alert(`Setor "${sector.sector}" excluído com sucesso.`);
+                              } catch (err) {
+                                alert('Erro ao excluir setor: ' + (err.response?.data?.error || err.message));
+                              }
                             }
-                          }
-                        }}
-                        className="text-red-600 hover:text-red-800 text-sm ml-3 flex items-center gap-1"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Excluir
-                      </button>
+                          }}
+                          className="text-red-600 hover:text-red-800 text-sm ml-3 flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Excluir
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
