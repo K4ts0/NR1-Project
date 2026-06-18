@@ -85,7 +85,7 @@ app.get('/api/reports/pdf', requireAuth, requireAdminOrSafety, async (req, res) 
   const responses = await db.all('SELECT answers FROM responses WHERE sector = ?', [sector]);
   if (!responses.length) return res.status(404).json({ error: 'Nenhuma resposta para este setor' });
   try {
-    const pdfBuffer = await generateFullReport(responses, sector, 'Minha Empresa');
+    const pdfBuffer = await generateFullReport(responses, sector, 'Instituto Social Medianeiras da Paz - Upa de Barra de Jangada');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=relatorio_${sector}_${Date.now()}.pdf`);
     res.send(pdfBuffer);
