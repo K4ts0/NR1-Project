@@ -7,6 +7,25 @@ import { authenticateUser, requireAuth, requireAdminOrSafety } from './auth.js';
 import { categories, questions, calculateCategoryScores, calculateIPS } from './questionnaireData.js';
 import { generateFullReport } from './reportGenerator.js';
 
+
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Serve os arquivos estáticos do frontend (build do React)
+const frontendPath = join(__dirname, '..', 'frontend', 'dist');
+app.use(express.static(frontendPath));
+
+// Redireciona qualquer rota não-API para o index.html do frontend
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(join(frontendPath, 'index.html'));
+});
+
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
