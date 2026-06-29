@@ -6,9 +6,9 @@ Sistema web para avaliação de riscos psicossociais conforme a **Norma Regulame
 
 ---
 
-## 📸 Dashboard
+## Dashboard
 
-![Dashboard NR-01](screenshots/dashboard.png)
+Dashboard NR-01
 
 ---
 
